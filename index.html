@@ -120,47 +120,31 @@
     </p>
   </div>
 
-  <script src="https://unpkg.com/@supabase/supabase-js@2" defer></script> <!-- CAMBIO: Añadido 'defer' -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2" defer></script>
   <script>
-    // --- CONFIGURACIÓN DE SUPABASE (¡IMPORTANTE: Reemplaza con tus claves!) ---
-    const supabaseUrl = 'YOUR_SUPABASE_URL'; // Ejemplo: 'https://dqddsrcengsdplggkxzu.supabase.co'
-    const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY'; // Ejemplo: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZGRzcmNlbmdzZHBsZ2dreHp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0OTIzMzcsImV4cCI6MjA2MjA2ODMzN30.iEL4w6mFm3O664mX9qdrUnAdbU8vbR5u6KyXcRlK8y4'
+    // --- CONFIGURACIÓN DE SUPABASE (¡AHORA CON TUS CLAVES REALES!) ---
+    const supabaseUrl = 'https://dqddsrcengsdplggkxzu.supabase.co'; 
+    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZGRzcmNlbmdzZHBsZ2dreHp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0OTIzMzcsImV4cCI6MjA2MjA2ODMzN30.iEL4w6mFm3O664mX9qdrUnAdbU8vbR5u6KyXcRlK8y4'; 
 
-    let supabase = null; // Inicializar como null
-    const messageDiv = document.getElementById('message'); // Definir messageDiv temprano
+    let supabase = null; 
+    const messageDiv = document.getElementById('message');
 
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('DOM Content Loaded.');
-
-      // Verificar si window.supabase existe DESPUÉS de que el DOM esté cargado.
-      if (typeof window.supabase === 'undefined') {
-          console.error("Error: Supabase SDK no cargado correctamente. 'window.supabase' no encontrado.");
-          messageDiv.textContent = 'Error interno: El sistema de autenticación no se cargó correctamente. Intenta de nuevo más tarde.';
-          messageDiv.classList.add('error');
-          // Deshabilitar formulario si el SDK no carga
-          document.getElementById('newPassword').disabled = true;
-          document.getElementById('confirmPassword').disabled = true;
-          document.getElementById('resetButton').disabled = true;
-          return; // Detener la ejecución si el SDK no está disponible
+    // --- FUNCIONES DE UTILIDAD ---
+    function showMessage(text, type = '') {
+      if (messageDiv) { // Asegurarse de que messageDiv existe
+        messageDiv.textContent = text;
+        messageDiv.className = 'message ' + type;
+      } else {
+        console.warn('messageDiv no encontrado. Mensaje:', text);
       }
-      supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-      console.log("Supabase client initialized.");
+    }
 
-      // --- ELEMENTOS DEL DOM ---
+    function enableForm(enable) {
       const newPasswordInput = document.getElementById('newPassword');
       const confirmPasswordInput = document.getElementById('confirmPassword');
       const resetButton = document.getElementById('resetButton');
-      const resetPasswordForm = document.getElementById('resetPasswordForm');
 
-      let accessToken = null; // Para almacenar el token de restablecimiento de la URL
-
-      // --- FUNCIONES DE UTILIDAD ---
-      function showMessage(text, type = '') {
-        messageDiv.textContent = text;
-        messageDiv.className = 'message ' + type; // Limpia clases anteriores y añade la nueva
-      }
-
-      function enableForm(enable) {
+      if (newPasswordInput && confirmPasswordInput && resetButton) { // Asegurarse de que los elementos existen
         newPasswordInput.disabled = !enable;
         confirmPasswordInput.disabled = !enable;
         resetButton.disabled = !enable;
@@ -170,9 +154,42 @@
           resetButton.textContent = 'Procesando...';
         }
       }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('DOM Content Loaded.');
+
+      // Verificar si window.supabase existe DESPUÉS de que el DOM esté cargado.
+      if (typeof window.supabase === 'undefined') {
+          console.error("Error: Supabase SDK no cargado correctamente. 'window.supabase' no encontrado.");
+          showMessage('Error interno: El sistema de autenticación no se cargó correctamente. Intenta de nuevo más tarde.', 'error');
+          enableForm(false); 
+          return;
+      }
+      
+      console.log('Supabase URL being used:', supabaseUrl);
+      console.log('Supabase Anon Key being used (first 10 chars):', supabaseAnonKey.substring(0, 10) + '...');
+
+      // Intenta crear el cliente Supabase
+      try {
+        supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+        console.log("Supabase client initialized successfully.");
+      } catch (e) {
+        console.error("Error al inicializar Supabase client:", e);
+        showMessage('Error al inicializar el servicio de autenticación. Verifica tu consola.', 'error');
+        enableForm(false);
+        return; 
+      }
+
+      // --- ELEMENTOS DEL DOM (se obtienen aquí una vez que el DOM está listo) ---
+      const newPasswordInput = document.getElementById('newPassword');
+      const confirmPasswordInput = document.getElementById('confirmPassword');
+      const resetButton = document.getElementById('resetButton');
+      const resetPasswordForm = document.getElementById('resetPasswordForm');
+
+      let accessToken = null; 
 
       // 1. Obtener el token de acceso del hash de la URL
-      // Supabase inserta el access_token y el tipo en el hash (#access_token=...&type=recovery)
       const params = new URLSearchParams(window.location.hash.substring(1));
       accessToken = params.get('access_token');
       const type = params.get('type');
@@ -180,108 +197,94 @@
 
       if (!accessToken || type !== 'recovery') {
         showMessage('Enlace inválido o expirado. Por favor, solicita un nuevo enlace para restablecer tu contraseña.', 'error');
-        enableForm(false); // Deshabilita el formulario
+        enableForm(false); 
         console.error('Validation failed: Missing access_token or type is not recovery.');
         return;
       }
 
       // Si tenemos un token válido, intentamos establecer la sesión con él.
-      // Esto es crucial para que `updateUser` sepa qué usuario está intentando actualizar.
       console.log('Attempting to set Supabase session with provided access token...');
       supabase.auth.setSession({ access_token: accessToken })
         .then(() => {
           console.log('Sesión Supabase establecida exitosamente.');
           showMessage('Listo para restablecer tu contraseña. Ingresa la nueva contraseña.', 'success');
-          enableForm(true); // Habilita el formulario
+          enableForm(true); 
         })
         .catch(error => {
           console.error('Error al establecer sesión con token de recuperación:', error);
           let displayMessage = 'Hubo un problema al validar el enlace. Intenta solicitar uno nuevo.';
-          if (error.message) {
+          if (error && error.message) {
             displayMessage += ` (Detalle: ${error.message})`;
           }
           showMessage(displayMessage, 'error');
-          enableForm(false); // Deshabilita el formulario
+          enableForm(false); 
         });
-    });
 
-    // --- MANEJADOR DEL FORMULARIO ---
-    // Este manejador debe estar fuera del `DOMContentLoaded` si los elementos se definen afuera,
-    // o asegurarse de que todos los elementos DOM estén disponibles cuando se adjunta el listener.
-    // Lo movemos afuera para que `resetPasswordForm` sea accesible.
-    const newPasswordInput = document.getElementById('newPassword');
-    const confirmPasswordInput = document.getElementById('confirmPassword');
-    const resetButton = document.getElementById('resetButton');
-    const resetPasswordForm = document.getElementById('resetPasswordForm'); // Asegurarse de que esté accesible aquí
+      // --- MANEJADOR DEL FORMULARIO ---
+      if (resetPasswordForm) { 
+          resetPasswordForm.addEventListener('submit', async (event) => {
+            event.preventDefault(); 
+            console.log('Formulario de restablecimiento enviado.');
 
-    if (resetPasswordForm) { // Solo añadir listener si el formulario existe
-        resetPasswordForm.addEventListener('submit', async (event) => {
-          event.preventDefault(); // Evita el envío tradicional del formulario
-          console.log('Formulario de restablecimiento enviado.');
+            if (!supabase) { 
+                showMessage('Error interno: Supabase no está inicializado. No se puede proceder con la actualización de contraseña.', 'error');
+                console.error('Supabase client is null. Cannot proceed with password update.');
+                enableForm(false);
+                return;
+            }
 
-          if (!supabase) { // Doble chequeo por si supabase no se inicializó
-              showMessage('Error interno: Supabase no está inicializado.', 'error');
-              console.error('Supabase client is null. Cannot proceed with password update.');
-              enableForm(false);
+            const newPassword = newPasswordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+
+            // Validaciones del lado del cliente
+            if (newPassword.length < 6) {
+              showMessage('La nueva contraseña debe tener al menos 6 caracteres.', 'error');
+              console.warn('Validation failed: Password too short.');
               return;
-          }
-
-          const newPassword = newPasswordInput.value;
-          const confirmPassword = confirmPasswordInput.value;
-
-          // Validaciones del lado del cliente
-          if (newPassword.length < 6) {
-            showMessage('La nueva contraseña debe tener al menos 6 caracteres.', 'error');
-            console.warn('Validation failed: Password too short.');
-            return;
-          }
-          if (newPassword !== confirmPassword) {
-            showMessage('Las contraseñas no coinciden.', 'error');
-            console.warn('Validation failed: Passwords do not match.');
-            return;
-          }
-
-          enableForm(false); // Deshabilita el formulario durante el proceso
-          showMessage('Restableciendo contraseña...', 'loading');
-          console.log('Attempting to update user password...');
-
-          try {
-            // 2. Llamada a la API de Supabase para actualizar la contraseña
-            // `updateUser` requiere una sesión activa para el usuario que se actualiza.
-            // La sesión se estableció arriba con `setSession(accessToken)`.
-            const { data, error } = await supabase.auth.updateUser({
-              password: newPassword
-            });
-
-            if (error) {
-              console.error('Error de Supabase al actualizar contraseña:', error);
-              throw error; // Lanza el error para que sea capturado por el bloque catch
+            }
+            if (newPassword !== confirmPassword) {
+              showMessage('Las contraseñas no coinciden.', 'error');
+              console.warn('Validation failed: Passwords do not match.');
+              return;
             }
 
-            console.log('Contraseña actualizada exitosamente:', data);
-            showMessage('¡Contraseña restablecida con éxito! Ya puedes volver a la app e iniciar sesión.', 'success');
-            newPasswordInput.value = ''; // Limpiar campos
-            confirmPasswordInput.value = '';
-            enableForm(false); // Mantener deshabilitado después de éxito
-            
-            // Opcional: Podrías añadir una redirección automática a tu app aquí si tienes Deep Links configurados
-            // setTimeout(() => {
-            //   window.location.href = 'autodate://login_success'; // Ejemplo de Deep Link
-            // }, 3000); // Redirige después de 3 segundos
-            
-          } catch (error) {
-            console.error('Error general al restablecer contraseña:', error);
-            let errorMessage = 'Ocurrió un error al restablecer la contraseña.';
-            if (error && error.message) { // Asegurarse de que el objeto error y su propiedad 'message' existan
-                errorMessage = error.message;
-            } else if (typeof error === 'string') {
-                errorMessage = error;
+            enableForm(false); 
+            showMessage('Restableciendo contraseña...', 'loading');
+            console.log('Attempting to update user password...');
+
+            try {
+              const { data, error } = await supabase.auth.updateUser({
+                password: newPassword
+              });
+
+              if (error) {
+                console.error('Error de Supabase al actualizar contraseña:', error);
+                throw error; 
+              }
+
+              console.log('Contraseña actualizada exitosamente:', data);
+              showMessage('¡Contraseña restablecida con éxito! Ya puedes volver a la app e iniciar sesión.', 'success');
+              newPasswordInput.value = ''; 
+              confirmPasswordInput.value = '';
+              enableForm(false); 
+              
+            } catch (error) {
+              console.error('Error general al restablecer contraseña:', error);
+              let errorMessage = 'Ocurrió un error al restablecer la contraseña.';
+              if (error && error.message) { 
+                  errorMessage = error.message;
+              } else if (typeof error === 'string') {
+                  errorMessage = error;
+              }
+              showMessage('Error: ' + errorMessage, 'error');
+              enableForm(true); 
             }
-            showMessage('Error: ' + errorMessage, 'error');
-            enableForm(true); // Habilita el formulario para reintentar
-          }
-        });
-    }
+          });
+      } else {
+        console.error('El formulario de restablecimiento de contraseña no se encontró.');
+        showMessage('Error interno: No se pudo cargar el formulario.', 'error');
+      }
+    });
   </script>
 </body>
 </html>
