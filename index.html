@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AutoDate - Restablecer Contraseña</title>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh; /* Usar min-height para permitir scroll si el contenido es largo */
+      margin: 0;
+      background-color: #f4f4f4;
+      color: #333;
+      padding: 20px; /* Padding general para el cuerpo */
+      box-sizing: border-box; /* Para incluir padding en el ancho/alto */
+    }
+    .container {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      text-align: center;
+      max-width: 450px; /* Un poco más ancho para el formulario */
+      width: 100%; /* Ocupa todo el ancho disponible hasta max-width */
+      box-sizing: border-box;
+    }
+    h1 {
+      color: #c26028;
+      margin-bottom: 20px;
+      font-size: 2em;
+    }
+    img {
+      max-width: 180px; /* Un poco más pequeña */
+      height: auto;
+      margin-bottom: 25px;
+      border-radius: 8px;
+    }
+    label {
+      display: block;
+      text-align: left;
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #555;
+    }
+    input[type="password"] {
+      width: calc(100% - 20px); /* Ajuste para el padding */
+      padding: 10px;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1em;
+      box-sizing: border-box; /* Importante para el width */
+    }
+    button {
+      background-color: #5DA7A3; /* Tu color principal para botones */
+      color: white;
+      padding: 12px 25px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.1em;
+      font-weight: bold;
+      transition: background-color 0.3s ease;
+      width: 100%;
+    }
+    button:hover {
+      background-color: #4A8C88; /* Un tono más oscuro al pasar el mouse */
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    #message {
+      margin-top: 20px;
+      font-size: 1.1em;
+      font-weight: bold;
+    }
+    .success {
+      color: #28a745; /* Verde para éxito */
+    }
+    .error {
+      color: #dc3545; /* Rojo para error */
+    }
+    .loading {
+      color: #007bff; /* Azul para carga */
+    }
+    .instruction-text {
+      margin-top: 25px;
+      font-size: 0.95em;
+      color: #777;
+      line-height: 1.4;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <img class="design__img" src="./assets/car.png" alt="Imagen">
+    <h1>Restablece tu Contraseña</h1>
+    <p>Ingresa tu nueva contraseña a continuación.</p>
+
+    <form id="resetPasswordForm">
+      <label for="newPassword">Nueva Contraseña:</label>
+      <input type="password" id="newPassword" name="newPassword" required minlength="6" placeholder="Mínimo 6 caracteres">
+
+      <label for="confirmPassword">Confirma Contraseña:</label>
+      <input type="password" id="confirmPassword" name="confirmPassword" required placeholder="Repite la nueva contraseña">
+
+      <button type="submit" id="resetButton">Restablecer Contraseña</button>
+    </form>
+
+    <div id="message" role="alert"></div>
+
+    <p class="instruction-text">
+      Una vez que restablezcas tu contraseña, por favor, cierra esta ventana del navegador y vuelve a la aplicación AutoDate para iniciar sesión con tu nueva contraseña.
+    </p>
+  </div>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script>
+    // --- CONFIGURACIÓN DE SUPABASE (¡IMPORTANTE: Reemplaza con tus claves!) ---
+    const supabaseUrl = 'YOUR_SUPABASE_URL'; 'https://dqddsrcengsdplggkxzu.supabase.co'
+    const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY'; 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZGRzcmNlbmdzZHBsZ2dreHp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0OTIzMzcsImV4cCI6MjA2MjA2ODMzN30.iEL4w6mFm3O664mX9qdrUnAdbU8vbR5u6KyXcRlK8y4'
+
+    const supabase = Supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+    // --- ELEMENTOS DEL DOM ---
+    const newPasswordInput = document.getElementById('newPassword');
+    const confirmPasswordInput = document.getElementById('confirmPassword');
+    const resetButton = document.getElementById('resetButton');
+    const messageDiv = document.getElementById('message');
+    const resetPasswordForm = document.getElementById('resetPasswordForm');
+
+    let accessToken = null; // Para almacenar el token de restablecimiento de la URL
+
+    // --- FUNCIONES DE UTILIDAD ---
+    function showMessage(text, type = '') {
+      messageDiv.textContent = text;
+      messageDiv.className = 'message ' + type; // Limpia clases anteriores y añade la nueva
+    }
+
+    function enableForm(enable) {
+      newPasswordInput.disabled = !enable;
+      confirmPasswordInput.disabled = !enable;
+      resetButton.disabled = !enable;
+      if (enable) {
+        resetButton.textContent = 'Restablecer Contraseña';
+      } else {
+        resetButton.textContent = 'Procesando...';
+      }
+    }
+
+    // --- LÓGICA PRINCIPAL ---
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1. Obtener el token de acceso del hash de la URL
+      // Supabase inserta el access_token y el tipo en el hash (#access_token=...&type=recovery)
+      const params = new URLSearchParams(window.location.hash.substring(1));
+      accessToken = params.get('access_token');
+      const type = params.get('type');
+
+      if (!accessToken || type !== 'recovery') {
+        showMessage('Enlace inválido o expirado. Por favor, solicita un nuevo enlace para restablecer tu contraseña.', 'error');
+        enableForm(false); // Deshabilita el formulario
+        return;
+      }
+
+      // Si tenemos un token válido, establecemos la sesión con él.
+      // Esto es crucial para que `updateUser` sepa qué usuario está intentando actualizar.
+      supabase.auth.setSession({ access_token: accessToken })
+        .then(() => {
+          console.log('Sesión establecida con token de recuperación.');
+          showMessage('Listo para restablecer tu contraseña.', 'success');
+          enableForm(true); // Habilita el formulario
+        })
+        .catch(error => {
+          console.error('Error al establecer sesión con token de recuperación:', error);
+          showMessage('Hubo un problema al validar el enlace. Intenta solicitar uno nuevo.', 'error');
+          enableForm(false); // Deshabilita el formulario
+        });
+    });
+
+    // --- MANEJADOR DEL FORMULARIO ---
+    resetPasswordForm.addEventListener('submit', async (event) => {
+      event.preventDefault(); // Evita el envío tradicional del formulario
+
+      const newPassword = newPasswordInput.value;
+      const confirmPassword = confirmPasswordInput.value;
+
+      // Validaciones del lado del cliente
+      if (newPassword.length < 6) {
+        showMessage('La nueva contraseña debe tener al menos 6 caracteres.', 'error');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        showMessage('Las contraseñas no coinciden.', 'error');
+        return;
+      }
+
+      enableForm(false); // Deshabilita el formulario durante el proceso
+      showMessage('Restableciendo contraseña...', 'loading');
+
+      try {
+        // 2. Llamada a la API de Supabase para actualizar la contraseña
+        // update User requiere una sesión activa para el usuario que se actualiza.
+        // La sesión se estableció arriba con setSession(accessToken).
+        const { data, error } = await supabase.auth.updateUser({
+          password: newPassword
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        showMessage('¡Contraseña restablecida con éxito! Ya puedes volver a la app e iniciar sesión.', 'success');
+        newPasswordInput.value = ''; // Limpiar campos
+        confirmPasswordInput.value = '';
+        enableForm(false); // Mantener deshabilitado después de éxito
+        
+        // Opcional: Podrías añadir una redirección automática a tu app aquí si tienes Deep Links configurados
+        // setTimeout(() => {
+        //   window.location.href = 'autodate://login_success'; // Ejemplo de Deep Link
+        // }, 3000); // Redirige después de 3 segundos
+        
+      } catch (error) {
+        console.error('Error al restablecer contraseña:', error);
+        let errorMessage = 'Ocurrió un error al restablecer la contraseña.';
+        if (error.message) {
+            errorMessage = error.message;
+        }
+        showMessage('Error: ' + errorMessage, 'error');
+        enableForm(true); // Habilita el formulario para reintentar
+      }
+    });
+  </script>
+</body>
+</html>
