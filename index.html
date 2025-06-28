@@ -11,12 +11,12 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 100vh; /* Usar min-height para permitir scroll si el contenido es largo */
+      min-height: 100vh;
       margin: 0;
       background-color: #f4f4f4;
       color: #333;
-      padding: 20px; /* Padding general para el cuerpo */
-      box-sizing: border-box; /* Para incluir padding en el ancho/alto */
+      padding: 20px;
+      box-sizing: border-box;
     }
     .container {
       background-color: #fff;
@@ -24,8 +24,8 @@
       border-radius: 12px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
       text-align: center;
-      max-width: 450px; /* Un poco más ancho para el formulario */
-      width: 100%; /* Ocupa todo el ancho disponible hasta max-width */
+      max-width: 450px;
+      width: 100%;
       box-sizing: border-box;
     }
     h1 {
@@ -34,7 +34,7 @@
       font-size: 2em;
     }
     img {
-      max-width: 180px; /* Un poco más pequeña */
+      max-width: 120px;
       height: auto;
       margin-bottom: 25px;
       border-radius: 8px;
@@ -47,16 +47,16 @@
       color: #555;
     }
     input[type="password"] {
-      width: calc(100% - 20px); /* Ajuste para el padding */
+      width: calc(100% - 20px);
       padding: 10px;
       margin-bottom: 20px;
       border: 1px solid #ccc;
       border-radius: 8px;
       font-size: 1em;
-      box-sizing: border-box; /* Importante para el width */
+      box-sizing: border-box;
     }
     button {
-      background-color: #5DA7A3; /* Tu color principal para botones */
+      background-color: #5DA7A3;
       color: white;
       padding: 12px 25px;
       border: none;
@@ -68,7 +68,7 @@
       width: 100%;
     }
     button:hover {
-      background-color: #4A8C88; /* Un tono más oscuro al pasar el mouse */
+      background-color: #4A8C88;
     }
     button:disabled {
       background-color: #cccccc;
@@ -80,13 +80,13 @@
       font-weight: bold;
     }
     .success {
-      color: #28a745; /* Verde para éxito */
+      color: #28a745;
     }
     .error {
-      color: #dc3545; /* Rojo para error */
+      color: #dc3545;
     }
     .loading {
-      color: #007bff; /* Azul para carga */
+      color: #007bff;
     }
     .instruction-text {
       margin-top: 25px;
@@ -123,10 +123,22 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script>
     // --- CONFIGURACIÓN DE SUPABASE (¡IMPORTANTE: Reemplaza con tus claves!) ---
-    const supabaseUrl = 'YOUR_SUPABASE_URL'; 'https://dqddsrcengsdplggkxzu.supabase.co'
-    const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY'; 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZGRzcmNlbmdzZHBsZ2dreHp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0OTIzMzcsImV4cCI6MjA2MjA2ODMzN30.iEL4w6mFm3O664mX9qdrUnAdbU8vbR5u6KyXcRlK8y4'
+    const supabaseUrl = 'YOUR_SUPABASE_URL'; // Ejemplo: 'https://dqddsrcengsdplggkxzu.supabase.co'
+    const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY'; // Ejemplo: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZGRzcmNlbmdzZHBsZ2dreHp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0OTIzMzcsImV4cCI6MjA2MjA2ODMzN30.iEL4w6mFm3O664mX9qdrUnAdbU8vbR5u6KyXcRlK8y4'
 
-    const supabase = Supabase.createClient(supabaseUrl, supabaseAnonKey);
+    // FIX: Asegurarse de que el objeto Supabase esté disponible globalmente como 'window.supabase'
+    // Verificar si window.supabase existe antes de usarlo.
+    if (typeof window.supabase === 'undefined') {
+        console.error("Error: Supabase SDK no cargado correctamente. 'window.supabase' no encontrado.");
+        document.getElementById('message').textContent = 'Error interno: El sistema de autenticación no se cargó correctamente. Intenta de nuevo más tarde.';
+        document.getElementById('message').classList.add('error');
+        // Deshabilitar formulario si el SDK no carga
+        document.getElementById('newPassword').disabled = true;
+        document.getElementById('confirmPassword').disabled = true;
+        document.getElementById('resetButton').disabled = true;
+    }
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+    console.log("Supabase client initialized.");
 
     // --- ELEMENTOS DEL DOM ---
     const newPasswordInput = document.getElementById('newPassword');
@@ -156,29 +168,37 @@
 
     // --- LÓGICA PRINCIPAL ---
     document.addEventListener('DOMContentLoaded', () => {
+      console.log('DOM Content Loaded.');
       // 1. Obtener el token de acceso del hash de la URL
       // Supabase inserta el access_token y el tipo en el hash (#access_token=...&type=recovery)
       const params = new URLSearchParams(window.location.hash.substring(1));
       accessToken = params.get('access_token');
       const type = params.get('type');
+      console.log('URL Parameters: access_token =', accessToken ? 'present' : 'missing', ', type =', type);
 
       if (!accessToken || type !== 'recovery') {
         showMessage('Enlace inválido o expirado. Por favor, solicita un nuevo enlace para restablecer tu contraseña.', 'error');
         enableForm(false); // Deshabilita el formulario
+        console.error('Validation failed: Missing access_token or type is not recovery.');
         return;
       }
 
-      // Si tenemos un token válido, establecemos la sesión con él.
+      // Si tenemos un token válido, intentamos establecer la sesión con él.
       // Esto es crucial para que `updateUser` sepa qué usuario está intentando actualizar.
+      console.log('Attempting to set Supabase session with provided access token...');
       supabase.auth.setSession({ access_token: accessToken })
         .then(() => {
-          console.log('Sesión establecida con token de recuperación.');
-          showMessage('Listo para restablecer tu contraseña.', 'success');
+          console.log('Sesión Supabase establecida exitosamente.');
+          showMessage('Listo para restablecer tu contraseña. Ingresa la nueva contraseña.', 'success');
           enableForm(true); // Habilita el formulario
         })
         .catch(error => {
           console.error('Error al establecer sesión con token de recuperación:', error);
-          showMessage('Hubo un problema al validar el enlace. Intenta solicitar uno nuevo.', 'error');
+          let displayMessage = 'Hubo un problema al validar el enlace. Intenta solicitar uno nuevo.';
+          if (error.message) {
+            displayMessage += ` (Detalle: ${error.message})`;
+          }
+          showMessage(displayMessage, 'error');
           enableForm(false); // Deshabilita el formulario
         });
     });
@@ -186,6 +206,7 @@
     // --- MANEJADOR DEL FORMULARIO ---
     resetPasswordForm.addEventListener('submit', async (event) => {
       event.preventDefault(); // Evita el envío tradicional del formulario
+      console.log('Formulario de restablecimiento enviado.');
 
       const newPassword = newPasswordInput.value;
       const confirmPassword = confirmPasswordInput.value;
@@ -193,28 +214,33 @@
       // Validaciones del lado del cliente
       if (newPassword.length < 6) {
         showMessage('La nueva contraseña debe tener al menos 6 caracteres.', 'error');
+        console.warn('Validation failed: Password too short.');
         return;
       }
       if (newPassword !== confirmPassword) {
         showMessage('Las contraseñas no coinciden.', 'error');
+        console.warn('Validation failed: Passwords do not match.');
         return;
       }
 
       enableForm(false); // Deshabilita el formulario durante el proceso
       showMessage('Restableciendo contraseña...', 'loading');
+      console.log('Attempting to update user password...');
 
       try {
         // 2. Llamada a la API de Supabase para actualizar la contraseña
-        // update User requiere una sesión activa para el usuario que se actualiza.
-        // La sesión se estableció arriba con setSession(accessToken).
+        // `updateUser` requiere una sesión activa para el usuario que se actualiza.
+        // La sesión se estableció arriba con `setSession(accessToken)`.
         const { data, error } = await supabase.auth.updateUser({
           password: newPassword
         });
 
         if (error) {
-          throw error;
+          console.error('Error de Supabase al actualizar contraseña:', error);
+          throw error; // Lanza el error para que sea capturado por el bloque catch
         }
 
+        console.log('Contraseña actualizada exitosamente:', data);
         showMessage('¡Contraseña restablecida con éxito! Ya puedes volver a la app e iniciar sesión.', 'success');
         newPasswordInput.value = ''; // Limpiar campos
         confirmPasswordInput.value = '';
@@ -226,10 +252,12 @@
         // }, 3000); // Redirige después de 3 segundos
         
       } catch (error) {
-        console.error('Error al restablecer contraseña:', error);
+        console.error('Error general al restablecer contraseña:', error);
         let errorMessage = 'Ocurrió un error al restablecer la contraseña.';
-        if (error.message) {
+        if (error && error.message) { // Asegurarse de que el objeto error y su propiedad 'message' existan
             errorMessage = error.message;
+        } else if (typeof error === 'string') {
+            errorMessage = error;
         }
         showMessage('Error: ' + errorMessage, 'error');
         enableForm(true); // Habilita el formulario para reintentar
