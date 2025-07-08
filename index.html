@@ -122,8 +122,7 @@
 
   <script src="https://unpkg.com/@supabase/supabase-js@2" defer></script>
   <script>
-    // --- CONFIGURACIÓN DE SUPABASE (¡AHORA CON TUS CLAVES REALES!) ---
-    // Reemplaza 'YOUR_SUPABASE_URL' y 'YOUR_SUPABASE_ANON_KEY' con tus valores reales.
+    // --- CONFIGURACIÓN DE SUPABASE ---
     const supabaseUrl = 'https://dqddsrcengsdplggkxzu.supabase.co'; 
     const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZGRzcmNlbmdzZHBsZ2dreHp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0OTIzMzcsImV4cCI6MjA2MjA2ODMzN30.iEL4w6mFm3O664mX9qdrUnAdbU8vbR5u6KyXcRlK8y4'; 
 
@@ -160,9 +159,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       console.log('DOM Content Loaded.');
 
-      // Verificar si window.supabase existe DESPUÉS de que el DOM esté cargado.
-      // El script de Supabase se carga de forma asíncrona (defer).
-      // Esperamos un poco para que el SDK de Supabase se cargue.
+      // Pequeño retraso para asegurar que el SDK de Supabase se haya cargado completamente.
       // En un entorno de producción, es mejor usar un evento de carga del script o un patrón de promesa.
       setTimeout(() => {
         if (typeof window.supabase === 'undefined') {
@@ -175,7 +172,6 @@
         console.log('Supabase URL being used:', supabaseUrl);
         console.log('Supabase Anon Key being used (first 10 chars):', supabaseAnonKey.substring(0, 10) + '...');
 
-        // Intenta crear el cliente Supabase
         try {
           supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
           console.log("Supabase client initialized successfully.");
@@ -186,45 +182,83 @@
           return; 
         }
 
-        // --- ELEMENTOS DEL DOM (se obtienen aquí una vez que el DOM está listo) ---
+        // --- ELEMENTOS DEL DOM ---
         const newPasswordInput = document.getElementById('newPassword');
         const confirmPasswordInput = document.getElementById('confirmPassword');
         const resetButton = document.getElementById('resetButton');
         const resetPasswordForm = document.getElementById('resetPasswordForm');
 
-        let accessToken = null; 
+        // --- Obtener parámetros de la URL ---
+        // La función getURLParameter ya verifica tanto el hash como la query string.
+        const codeParam = getURLParameter('code'); // Captura el parámetro 'code'
+        const type = getURLParameter('type'); // Captura el parámetro 'type' (esperamos 'recovery' si viene en hash)
+        const accessToken = getURLParameter('access_token'); // Captura el access_token (si viene en hash)
 
-        // 1. Obtener el token de acceso y el tipo de la URL (del hash)
-        const params = new URLSearchParams(window.location.hash.substring(1));
-        accessToken = params.get('access_token');
-        const type = params.get('type'); // Debería ser 'recovery'
-        console.log('URL Parameters: access_token =', accessToken ? 'present' : 'missing', ', type =', type);
+        console.log('DEBUG Reset: URL Parameters:');
+        console.log('DEBUG Reset: access_token =', accessToken ? 'presente' : 'ausente');
+        console.log('DEBUG Reset: type =', type);
+        console.log('DEBUG Reset: code =', codeParam ? 'presente' : 'ausente'); // Nuevo DEBUG
 
-        if (!accessToken || type !== 'recovery') {
-          showMessage('Enlace inválido o expirado. Por favor, solicita un nuevo enlace para restablecer tu contraseña.', 'error');
-          enableForm(false); 
-          console.error('Validation failed: Missing access_token or type is not recovery.');
-          return;
+
+        // --- LÓGICA PRINCIPAL DE VALIDACIÓN DEL ENLACE ---
+        if (codeParam) {
+            // Si encontramos el parámetro 'code' (el más común para password reset de Supabase)
+            showMessage('Validando enlace de restablecimiento...', 'loading');
+            enableForm(false); // Deshabilitar el formulario mientras se valida
+
+            supabase.auth.exchangeCodeForSession(codeParam)
+                .then(({ data, error }) => {
+                    if (error) {
+                        console.error('Error al intercambiar código por sesión:', error);
+                        let displayMessage = 'Enlace inválido o expirado. Por favor, solicita un nuevo enlace para restablecer tu contraseña.';
+                        if (error.message) {
+                            displayMessage += ` (Detalle: ${error.message})`;
+                        }
+                        showMessage(displayMessage, 'error');
+                        enableForm(false);
+                    } else if (data.session) {
+                        console.log('Sesión Supabase establecida exitosamente con el código.');
+                        showMessage('Listo para restablecer tu contraseña. Ingresa la nueva contraseña.', 'success');
+                        enableForm(true); // Habilitar el formulario
+                    } else {
+                        // Caso en el que no hay error pero tampoco sesión (inesperado pero posible)
+                        console.error('exchangeCodeForSession no devolvió sesión ni error explícito.');
+                        showMessage('Enlace inválido o expirado. Por favor, solicita un nuevo enlace para restablecer tu contraseña.', 'error');
+                        enableForm(false);
+                    }
+                })
+                .catch(error => {
+                    // Captura errores de red o promesas rechazadas
+                    console.error('Error general en exchangeCodeForSession:', error);
+                    showMessage('Ocurrió un error inesperado al validar el enlace. Intenta solicitar uno nuevo.', 'error');
+                    enableForm(false);
+                });
+        } else if (accessToken && type === 'recovery') {
+            // Lógica de respaldo si Supabase envía access_token y type=recovery en el hash (comportamiento anterior)
+            showMessage('Validando enlace de restablecimiento (modo de respaldo)...', 'loading');
+            enableForm(false);
+
+            supabase.auth.setSession({ access_token: accessToken })
+                .then(() => {
+                    console.log('Sesión Supabase establecida exitosamente con access_token (modo de respaldo).');
+                    showMessage('Listo para restablecer tu contraseña. Ingresa la nueva contraseña.', 'success');
+                    enableForm(true);
+                })
+                .catch(error => {
+                    console.error('Error al establecer sesión con token de recuperación (modo de respaldo):', error);
+                    let displayMessage = 'Hubo un problema al validar el enlace. Intenta solicitar uno nuevo.';
+                    if (error && error.message) {
+                        displayMessage += ` (Detalle: ${error.message})`;
+                    }
+                    showMessage(displayMessage, 'error');
+                    enableForm(false);
+                });
+        } else {
+            // Si no se encontró ni 'code' ni 'access_token' con 'recovery'
+            showMessage('Enlace inválido o expirado. Por favor, solicita un nuevo enlace para restablecer tu contraseña.', 'error');
+            enableForm(false);
+            console.error('Validation failed: No se encontró un token de restablecimiento válido en la URL.');
         }
-
-        // Si tenemos un token válido, intentamos establecer la sesión con él.
-        // Esto es crucial para que Supabase sepa qué usuario está intentando restablecer la contraseña.
-        console.log('Attempting to set Supabase session with provided access token...');
-        supabase.auth.setSession({ access_token: accessToken })
-          .then(() => {
-            console.log('Sesión Supabase establecida exitosamente.');
-            showMessage('Listo para restablecer tu contraseña. Ingresa la nueva contraseña.', 'success');
-            enableForm(true); 
-          })
-          .catch(error => {
-            console.error('Error al establecer sesión con token de recuperación:', error);
-            let displayMessage = 'Hubo un problema al validar el enlace. Intenta solicitar uno nuevo.';
-            if (error && error.message) {
-              displayMessage += ` (Detalle: ${error.message})`;
-            }
-            showMessage(displayMessage, 'error');
-            enableForm(false); 
-          });
 
         // --- MANEJADOR DEL FORMULARIO ---
         if (resetPasswordForm) { 
@@ -272,8 +306,7 @@
                 showMessage('¡Contraseña restablecida con éxito! Ya puedes volver a la app e iniciar sesión.', 'success');
                 newPasswordInput.value = ''; 
                 confirmPasswordInput.value = '';
-                // Después de un restablecimiento exitoso, el formulario debe quedar inactivo
-                enableForm(false); 
+                enableForm(false); // Mantener el formulario deshabilitado después del éxito
                 
               } catch (error) {
                 console.error('Error general al restablecer contraseña:', error);
@@ -284,7 +317,7 @@
                     errorMessage = error;
                 }
                 showMessage('Error: ' + errorMessage, 'error');
-                enableForm(true); 
+                enableForm(true); // Re-habilitar el formulario en caso de error para que el usuario pueda reintentar
               }
             });
         } else {
