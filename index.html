@@ -124,7 +124,7 @@
   <script>
     // --- CONFIGURACIÓN DE SUPABASE ---
     const supabaseUrl = 'https://dqddsrcengsdplggkxzu.supabase.co'; 
-    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZGRzcmNlbmdzZHBsZ2dreHp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0OTIzMzcsImV4cCI6MjA2MjA2ODMzN30.iEL4w6mFm3O664mX9qdrUnAdbU8vbR5u6KyXcRlK8y4'; 
+    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZGRzcmNlbmdzZHBsZ2dreHp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0OTIzMzcsImexZWI6MjA2MjA2ODMzN30.iEL4w6mFm3O664mX9qdrUnAdbU8vbR5u6KyXcRlK8y4'; 
 
     let supabase = null; 
     const messageDiv = document.getElementById('message');
@@ -156,11 +156,30 @@
       }
     }
 
+    // --- FUNCIÓN PARA OBTENER PARÁMETROS DE LA URL (AÑADIDA) ---
+    function getURLParameter(name) {
+      // Primero busca en la query string (?key=value)
+      const queryString = window.location.search;
+      const urlParams = new URLSearchParams(queryString);
+      if (urlParams.has(name)) {
+        return urlParams.get(name);
+      }
+
+      // Si no está en la query string, busca en el hash fragment (#key=value)
+      const hashString = window.location.hash;
+      if (hashString.startsWith('#')) {
+        const hashParams = new URLSearchParams(hashString.substring(1)); // Elimina el '#'
+        if (hashParams.has(name)) {
+          return hashParams.get(name);
+        }
+      }
+      return null; // Retorna null si el parámetro no se encuentra en ninguno
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       console.log('DOM Content Loaded.');
 
       // Pequeño retraso para asegurar que el SDK de Supabase se haya cargado completamente.
-      // En un entorno de producción, es mejor usar un evento de carga del script o un patrón de promesa.
       setTimeout(() => {
         if (typeof window.supabase === 'undefined') {
             console.error("Error: Supabase SDK no cargado correctamente. 'window.supabase' no encontrado.");
@@ -189,7 +208,6 @@
         const resetPasswordForm = document.getElementById('resetPasswordForm');
 
         // --- Obtener parámetros de la URL ---
-        // La función getURLParameter ya verifica tanto el hash como la query string.
         const codeParam = getURLParameter('code'); // Captura el parámetro 'code'
         const type = getURLParameter('type'); // Captura el parámetro 'type' (esperamos 'recovery' si viene en hash)
         const accessToken = getURLParameter('access_token'); // Captura el access_token (si viene en hash)
@@ -197,7 +215,7 @@
         console.log('DEBUG Reset: URL Parameters:');
         console.log('DEBUG Reset: access_token =', accessToken ? 'presente' : 'ausente');
         console.log('DEBUG Reset: type =', type);
-        console.log('DEBUG Reset: code =', codeParam ? 'presente' : 'ausente'); // Nuevo DEBUG
+        console.log('DEBUG Reset: code =', codeParam ? 'presente' : 'ausente');
 
 
         // --- LÓGICA PRINCIPAL DE VALIDACIÓN DEL ENLACE ---
