@@ -124,7 +124,8 @@
   <script>
     // --- CONFIGURACIÓN DE SUPABASE ---
     const supabaseUrl = 'https://dqddsrcengsdplggkxzu.supabase.co'; 
-    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZGRzcmNlbmdzZHBsZ2dreHp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0OTIzMzcsImexZWI6MjA2MjA2ODMzN30.iEL4w6mFm3O664mX9qdrUnAdbU8vbR5u6KyXcRlK8y4'; 
+    // ¡IMPORTANTE! REEMPLAZA 'TU_SUPABASE_ANON_KEY_AQUI' CON TU CLAVE ANON REAL DE SUPABASE
+    const supabaseAnonKey ='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZGRzcmNlbmdzZHBsZ2dreHp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0OTIzMzcsImV4cCI6MjA2MjA2ODMzN30.iEL4w6mFm3O664mX9qdrUnAdbU8vbR5u6KyXcRlK8y4'; 
 
     let supabase = null; 
     const messageDiv = document.getElementById('message');
@@ -156,30 +157,27 @@
       }
     }
 
-    // --- FUNCIÓN PARA OBTENER PARÁMETROS DE LA URL (AÑADIDA) ---
+    // --- FUNCIÓN PARA OBTENER PARÁMETROS DE LA URL ---
     function getURLParameter(name) {
-      // Primero busca en la query string (?key=value)
       const queryString = window.location.search;
       const urlParams = new URLSearchParams(queryString);
       if (urlParams.has(name)) {
         return urlParams.get(name);
       }
 
-      // Si no está en la query string, busca en el hash fragment (#key=value)
       const hashString = window.location.hash;
       if (hashString.startsWith('#')) {
-        const hashParams = new URLSearchParams(hashString.substring(1)); // Elimina el '#'
+        const hashParams = new URLSearchParams(hashString.substring(1));
         if (hashParams.has(name)) {
           return hashParams.get(name);
         }
       }
-      return null; // Retorna null si el parámetro no se encuentra en ninguno
+      return null;
     }
 
     document.addEventListener('DOMContentLoaded', () => {
       console.log('DOM Content Loaded.');
 
-      // Pequeño retraso para asegurar que el SDK de Supabase se haya cargado completamente.
       setTimeout(() => {
         if (typeof window.supabase === 'undefined') {
             console.error("Error: Supabase SDK no cargado correctamente. 'window.supabase' no encontrado.");
@@ -208,9 +206,9 @@
         const resetPasswordForm = document.getElementById('resetPasswordForm');
 
         // --- Obtener parámetros de la URL ---
-        const codeParam = getURLParameter('code'); // Captura el parámetro 'code'
-        const type = getURLParameter('type'); // Captura el parámetro 'type' (esperamos 'recovery' si viene en hash)
-        const accessToken = getURLParameter('access_token'); // Captura el access_token (si viene en hash)
+        const codeParam = getURLParameter('code');
+        const type = getURLParameter('type');
+        const accessToken = getURLParameter('access_token');
 
         console.log('DEBUG Reset: URL Parameters:');
         console.log('DEBUG Reset: access_token =', accessToken ? 'presente' : 'ausente');
@@ -220,9 +218,8 @@
 
         // --- LÓGICA PRINCIPAL DE VALIDACIÓN DEL ENLACE ---
         if (codeParam) {
-            // Si encontramos el parámetro 'code' (el más común para password reset de Supabase)
             showMessage('Validando enlace de restablecimiento...', 'loading');
-            enableForm(false); // Deshabilitar el formulario mientras se valida
+            enableForm(false);
 
             supabase.auth.exchangeCodeForSession(codeParam)
                 .then(({ data, error }) => {
@@ -237,22 +234,19 @@
                     } else if (data.session) {
                         console.log('Sesión Supabase establecida exitosamente con el código.');
                         showMessage('Listo para restablecer tu contraseña. Ingresa la nueva contraseña.', 'success');
-                        enableForm(true); // Habilitar el formulario
+                        enableForm(true);
                     } else {
-                        // Caso en el que no hay error pero tampoco sesión (inesperado pero posible)
                         console.error('exchangeCodeForSession no devolvió sesión ni error explícito.');
                         showMessage('Enlace inválido o expirado. Por favor, solicita un nuevo enlace para restablecer tu contraseña.', 'error');
                         enableForm(false);
                     }
                 })
                 .catch(error => {
-                    // Captura errores de red o promesas rechazadas
                     console.error('Error general en exchangeCodeForSession:', error);
                     showMessage('Ocurrió un error inesperado al validar el enlace. Intenta solicitar uno nuevo.', 'error');
                     enableForm(false);
                 });
         } else if (accessToken && type === 'recovery') {
-            // Lógica de respaldo si Supabase envía access_token y type=recovery en el hash (comportamiento anterior)
             showMessage('Validando enlace de restablecimiento (modo de respaldo)...', 'loading');
             enableForm(false);
 
@@ -272,7 +266,6 @@
                     enableForm(false);
                 });
         } else {
-            // Si no se encontró ni 'code' ni 'access_token' con 'recovery'
             showMessage('Enlace inválido o expirado. Por favor, solicita un nuevo enlace para restablecer tu contraseña.', 'error');
             enableForm(false);
             console.error('Validation failed: No se encontró un token de restablecimiento válido en la URL.');
@@ -294,7 +287,6 @@
               const newPassword = newPasswordInput.value;
               const confirmPassword = confirmPasswordInput.value;
 
-              // Validaciones del lado del cliente
               if (newPassword.length < 6) {
                 showMessage('La nueva contraseña debe tener al menos 6 caracteres.', 'error');
                 console.warn('Validation failed: Password too short.');
@@ -324,7 +316,7 @@
                 showMessage('¡Contraseña restablecida con éxito! Ya puedes volver a la app e iniciar sesión.', 'success');
                 newPasswordInput.value = ''; 
                 confirmPasswordInput.value = '';
-                enableForm(false); // Mantener el formulario deshabilitado después del éxito
+                enableForm(false);
                 
               } catch (error) {
                 console.error('Error general al restablecer contraseña:', error);
@@ -335,14 +327,14 @@
                     errorMessage = error;
                 }
                 showMessage('Error: ' + errorMessage, 'error');
-                enableForm(true); // Re-habilitar el formulario en caso de error para que el usuario pueda reintentar
+                enableForm(true);
               }
             });
         } else {
           console.error('El formulario de restablecimiento de contraseña no se encontró.');
           showMessage('Error interno: No se pudo cargar el formulario.', 'error');
         }
-      }, 500); // Pequeño retraso para asegurar que el SDK de Supabase se haya cargado
+      }, 500);
     });
   </script>
 </body>
